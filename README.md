@@ -198,14 +198,43 @@ introduced only in Phase 5.
 
 ### 5. Replace it with an ApplicationSet Cluster Generator
 
+**Goal:** use cluster registration metadata as the placement API. Adding a
+matching cluster should produce an Application without editing this
+ApplicationSet.
+
 ```bash
+export REPO_URL=https://github.com/brunobml/argo-hub-spoke.git
+export TARGET_REVISION=main
 ./scripts/bootstrap-gitops.sh applicationset
-kubectl --context k3d-argocd-hub -n argocd get applicationsets,applications
-kubectl --context k3d-spoke-02 -n demo get pods
+./scripts/verify-phase5.sh
 ```
 
 The generator selects cluster Secrets labeled `workload=applications`. It does
-not contain a list of spoke names.
+not contain a list of spoke names:
+
+```text
+cluster-spoke-01 Secret --+
+  workload=applications    |
+                           +-> Cluster Generator -> demo-app-spoke-01
+cluster-spoke-02 Secret --+                      -> demo-app-spoke-02
+  workload=applications
+```
+
+For every match, the generator supplies `.name`, `.nameNormalized`, and
+`.server`. The template uses the server as the destination and injects the
+cluster name into the same generic Kustomize base. Both generated Applications
+have an `ApplicationSet` owner reference and automated self-healing.
+
+Expected responses are identical except for placement:
+
+```text
+spoke-01 -> Cluster: spoke-01
+spoke-02 -> Cluster: spoke-02
+```
+
+Both still report `Secret loaded: no`; secret delivery has not been introduced
+yet. Phase 10 will prove the scaling property with `spoke-03`, after the
+remaining platform and security phases are understood.
 
 ### 6. Start Moto and create the fake AWS secret
 
