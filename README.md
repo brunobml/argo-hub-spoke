@@ -1,5 +1,8 @@
 # Argo CD hub-and-spoke lab
 
+Start with [roadmap.md](roadmap.md) for phase status, the next step, commands,
+verification, and the production concept demonstrated by each exercise.
+
 This lab runs one Argo CD control plane in `argocd-hub` and deploys a tiny
 nginx application to `spoke-01` and `spoke-02`. External Secrets Operator
 (ESO) runs on each spoke and reads a JSON secret from a local Moto container
