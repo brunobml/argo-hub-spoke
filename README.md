@@ -1,0 +1,277 @@
+# Argo CD hub-and-spoke lab
+
+This lab runs one Argo CD control plane in `argocd-hub` and deploys a tiny
+nginx application to `spoke-01` and `spoke-02`. External Secrets Operator
+(ESO) runs on each spoke and reads a JSON secret from a local Moto container
+that emulates AWS Secrets Manager.
+
+The infrastructure is local; the architecture is not simplified:
+
+```text
+Git -> Argo CD hub -> spoke Kubernetes APIs
+                         |
+                         +-> demo app
+                         +-> ESO -> Moto (AWS Secrets Manager API)
+```
+
+## Prerequisites
+
+- Docker
+- k3d
+- kubectl
+- Helm 3
+- Argo CD CLI
+- a Git repository containing this project, reachable by the Argo CD pods
+
+Check them with:
+
+```bash
+./scripts/check-prerequisites.sh
+```
+
+## Walk through the phases
+
+Do not run this as one opaque installer. Run a phase, inspect it, and verify it
+before continuing.
+
+### 1. Create the clusters
+
+```bash
+./scripts/create-clusters.sh
+k3d cluster list
+kubectl config get-contexts
+```
+
+All containers join the `argo-lab` Docker network. The fixed API ports are
+`6550` (hub), `6551` (spoke-01), and `6552` (spoke-02). The hub also maps host
+ports 80 and 443 to its Traefik load balancer for optional ingress-based UIs.
+
+### 2. Install Argo CD only on the hub
+
+**Goal:** create the single control plane that will later reconcile workloads
+on both remote clusters. Nothing is installed on the spokes in this phase.
+
+```bash
+./scripts/install-argocd.sh
+kubectl --context k3d-argocd-hub -n argocd get pods
+```
+
+The script installs the pinned upstream Argo CD `v3.1.8` manifest and waits for
+both its Deployments and its application-controller StatefulSet. Pinning makes
+the exercise repeatable; override it explicitly with `ARGO_CD_VERSION` when
+testing an upgrade.
+
+Important components to identify:
+
+| Component | Lab responsibility |
+|---|---|
+| `argocd-server` | API and web UI |
+| `argocd-repo-server` | fetches and renders Git content |
+| `argocd-application-controller` | compares desired and live state and synchronizes it |
+| `argocd-applicationset-controller` | later generates one Application per labeled spoke |
+| `argocd-redis` | short-lived cache |
+| `argocd-dex-server` | identity integration; local admin is used for this lab |
+
+Verify that every pod is `Running`, the application controller is ready, and
+Argo CD is absent from both spokes:
+
+```bash
+kubectl --context k3d-argocd-hub -n argocd get deploy,statefulset
+kubectl --context k3d-argocd-hub get crd \
+  applications.argoproj.io \
+  applicationsets.argoproj.io \
+  appprojects.argoproj.io
+kubectl --context k3d-spoke-01 get namespace argocd
+kubectl --context k3d-spoke-02 get namespace argocd
+```
+
+The last two commands should return `NotFound`. That is intentional: the hub
+will manage the spokes through their Kubernetes APIs.
+
+To use the UI, start a port-forward in one terminal:
+
+```bash
+kubectl --context k3d-argocd-hub -n argocd port-forward svc/argocd-server 8080:443
+```
+
+In another terminal, obtain the bootstrap password and log in. Avoid copying
+the password into documentation or Git:
+
+```bash
+argocd admin initial-password --core --kube-context k3d-argocd-hub
+argocd login localhost:8080 --username admin --insecure
+```
+
+Open <https://localhost:8080>. The certificate warning is expected because the
+local installation uses a self-signed certificate. No applications or remote
+clusters are expected yet; those belong to later phases.
+
+### 3. Register the spokes
+
+**Goal:** give the hub an identity it can use against each spoke API, while
+limiting that identity to the `demo` namespace.
+
+```bash
+./scripts/register-clusters.sh
+./scripts/verify-phase3.sh
+```
+
+Registration consists of two sides:
+
+```text
+spoke-01 / spoke-02                    argocd-hub
+-------------------                    ----------
+kube-system/argocd-manager SA    --->  argocd/cluster-spoke-N Secret
+demo Role + RoleBinding                 name, API URL, CA, token, labels
+```
+
+The upstream `argocd cluster add CONTEXT` command automates this model. This
+lab creates it declaratively so each object is visible and the access is
+namespace-scoped from the beginning. The hub Secrets use the required
+`argocd.argoproj.io/secret-type=cluster` label and also contain:
+
+- `environment=dev`
+- `workload=applications`
+
+The latter is the placement selector used by ApplicationSet in Phase 5. The
+credential fields are base64-encoded Kubernetes Secret data and must not be
+printed or committed.
+
+The API address is `https://k3d-spoke-N-server-0:6443`, resolvable on the
+shared Docker network. The workstation's `127.0.0.1:655N` address would not be
+usable from an Argo CD pod.
+
+Expected verification results:
+
+- both `cluster-spoke-01` and `cluster-spoke-02` exist with both labels;
+- each manager can create a Deployment in `demo`;
+- each manager cannot create a Deployment in `default`;
+- `argocd cluster list` shows both spokes and `(1 namespaces)`.
+
+The cluster status may be `Unknown` with the message that it has no
+applications and is not monitored. That is healthy at the end of Phase 3.
+Phase 4 will create the first Application and activate monitoring.
+
+### 4. Deploy one app manually through Argo CD
+
+Commit and push this repository first, then provide its URL:
+
+```bash
+export REPO_URL=https://github.com/REPLACE_ME/argo-hub-spoke.git
+./scripts/bootstrap-gitops.sh manual
+kubectl --context k3d-spoke-01 -n demo get deploy,pod,service
+```
+
+This phase creates one `Application` for `spoke-01`, making the mechanics easy
+to inspect before introducing ApplicationSet.
+
+### 5. Replace it with an ApplicationSet Cluster Generator
+
+```bash
+./scripts/bootstrap-gitops.sh applicationset
+kubectl --context k3d-argocd-hub -n argocd get applicationsets,applications
+kubectl --context k3d-spoke-02 -n demo get pods
+```
+
+The generator selects cluster Secrets labeled `workload=applications`. It does
+not contain a list of spoke names.
+
+### 6. Start Moto and create the fake AWS secret
+
+Supply the application values at runtime; they are never stored in Git:
+
+```bash
+read -r -p 'Database username: ' DEMO_DB_USERNAME
+read -r -s -p 'Database password: ' DEMO_DB_PASSWORD; echo
+export DEMO_DB_USERNAME DEMO_DB_PASSWORD
+./scripts/setup-moto.sh
+```
+
+The secret key is `/demo/database`. The script prints metadata, never its
+value.
+
+### 7. Install ESO on both spokes
+
+```bash
+./scripts/install-eso.sh
+kubectl --context k3d-spoke-01 -n external-secrets get pods
+kubectl --context k3d-spoke-02 -n external-secrets get pods
+```
+
+ESO is platform bootstrap in this small lab. Its provider objects and the demo
+application remain GitOps-managed.
+
+### 8. Enable the ExternalSecret overlay
+
+```bash
+./scripts/bootstrap-gitops.sh external-secrets
+kubectl --context k3d-spoke-01 -n demo get secretstore,externalsecret
+kubectl --context k3d-spoke-01 -n demo get secret demo-database
+```
+
+Do not decode the generated Secret during ordinary verification. Port-forward
+the service and observe only whether a secret was loaded:
+
+```bash
+kubectl --context k3d-spoke-01 -n demo port-forward svc/demo-app 8081:80
+curl http://localhost:8081
+```
+
+### 9. Harden Argo CD's spoke access
+
+The CLI registration initially creates broad bootstrap permissions. Replace
+them with a Role and RoleBinding limited to the pre-created `demo` namespace:
+
+```bash
+./scripts/harden-rbac.sh
+```
+
+This deliberately removes the CLI-created ClusterRoleBinding after installing
+the namespace RoleBinding. Argo CD can continue managing the demo resources,
+but it cannot administer the rest of either spoke.
+
+### 10. Add a spoke without changing ApplicationSet
+
+```bash
+./scripts/create-spoke.sh spoke-03 6553
+kubectl --context k3d-spoke-03 -n demo get pods
+```
+
+The script creates and registers the cluster, installs ESO, and applies the
+same restricted RBAC. ApplicationSet discovers it through the cluster label.
+
+## Drift and failure exercises
+
+```bash
+# Argo CD self-heal returns this to one replica.
+kubectl --context k3d-spoke-01 -n demo scale deployment demo-app --replicas=5
+
+# ESO reports provider errors; existing Kubernetes Secret remains.
+docker stop moto
+kubectl --context k3d-spoke-01 -n demo describe externalsecret demo-database
+docker start moto
+
+# One unavailable spoke does not stop reconciliation of another.
+k3d cluster stop spoke-02
+argocd cluster list --core --kube-context k3d-argocd-hub
+k3d cluster start spoke-02
+```
+
+Automated sync uses self-healing but intentionally omits `prune: true`; this
+introductory lab does not automatically delete resources removed from Git.
+
+## Cleanup
+
+```bash
+./scripts/cleanup.sh
+```
+
+See [docs/architecture.md](docs/architecture.md) for the trust boundaries and
+the local-to-production mapping.
+
+## Optional extension: Keycloak SSO
+
+After Phase 3, you may add Keycloak authentication without changing the spoke
+architecture. Follow [docs/keycloak-sso.md](docs/keycloak-sso.md). This remains
+outside the numbered application-delivery phases so the core hub-and-spoke
+lesson does not depend on an identity platform.

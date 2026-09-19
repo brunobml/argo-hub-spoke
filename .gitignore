@@ -1,0 +1,8 @@
+# Local environment and generated credentials
+.env
+*.local
+
+# Editor and OS metadata
+.DS_Store
+.idea/
+.vscode/

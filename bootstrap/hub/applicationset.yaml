@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: demo-app
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            workload: applications
+  template:
+    metadata:
+      name: 'demo-app-{{.nameNormalized}}'
+    spec:
+      project: demo
+      source:
+        repoURL: REPLACE_REPO_URL
+        targetRevision: REPLACE_REVISION
+        path: apps/demo-app/base
+        kustomize:
+          patches:
+            - target:
+                kind: Deployment
+                name: demo-app
+              patch: |-
+                - op: replace
+                  path: /spec/template/spec/containers/0/env/0/value
+                  value: '{{.name}}'
+      destination:
+        server: '{{.server}}'
+        namespace: demo
+      syncPolicy:
+        automated:
+          selfHeal: true

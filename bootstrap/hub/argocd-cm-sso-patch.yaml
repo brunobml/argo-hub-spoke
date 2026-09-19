@@ -1,0 +1,14 @@
+data:
+  url: http://argocd.localhost
+  oidc.config: |
+    name: Keycloak
+    issuer: http://keycloak.localhost/realms/argocd-lab
+    clientID: argocd
+    clientSecret: $oidc.keycloak.clientSecret
+    requestedScopes:
+      - openid
+      - profile
+      - email
+    requestedIDTokenClaims:
+      groups:
+        essential: true

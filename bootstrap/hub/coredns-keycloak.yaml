@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  localhost.override: |
+    template IN ANY localhost {
+      match ".*\.localhost\."
+      answer "{{ .Name }} 60 IN CNAME traefik.kube-system.svc.cluster.local."
+      fallthrough
+    }

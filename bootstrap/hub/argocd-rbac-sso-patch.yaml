@@ -1,0 +1,6 @@
+data:
+  scopes: "[groups]"
+  policy.default: role:readonly
+  policy.csv: |
+    g, argocd-admins, role:admin
+    g, argocd-viewers, role:readonly

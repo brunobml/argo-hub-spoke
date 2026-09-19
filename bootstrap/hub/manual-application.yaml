@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app-spoke-01
+  namespace: argocd
+spec:
+  project: demo
+  source:
+    repoURL: REPLACE_REPO_URL
+    targetRevision: REPLACE_REVISION
+    path: apps/demo-app/base
+    kustomize:
+      patches:
+        - target:
+            kind: Deployment
+            name: demo-app
+          patch: |-
+            - op: replace
+              path: /spec/template/spec/containers/0/env/0/value
+              value: spoke-01
+  destination:
+    name: spoke-01
+    namespace: demo
+  syncPolicy:
+    automated:
+      selfHeal: true

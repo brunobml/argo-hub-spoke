@@ -1,0 +1,62 @@
+{
+  "realm": "argocd-lab",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "groups": [
+    { "name": "argocd-admins" },
+    { "name": "argocd-viewers" }
+  ],
+  "users": [
+    {
+      "username": "developer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "developer@example.invalid",
+      "credentials": [
+        { "type": "password", "value": "REPLACE_DEVELOPER_PASSWORD", "temporary": false }
+      ],
+      "groups": ["/argocd-admins"]
+    },
+    {
+      "username": "viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "viewer@example.invalid",
+      "credentials": [
+        { "type": "password", "value": "REPLACE_VIEWER_PASSWORD", "temporary": false }
+      ],
+      "groups": ["/argocd-viewers"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "argocd",
+      "name": "Argo CD",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "REPLACE_ARGOCD_CLIENT_SECRET",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://argocd.localhost/auth/callback"],
+      "webOrigins": ["http://argocd.localhost"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "groups"
+          }
+        }
+      ]
+    }
+  ]
+}

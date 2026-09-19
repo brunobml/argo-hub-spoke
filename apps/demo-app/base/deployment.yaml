@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-app
+  template:
+    metadata:
+      labels:
+        app: demo-app
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.29-alpine
+          env:
+            - name: CLUSTER_NAME
+              value: replaced-by-applicationset
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                if [ -s /var/run/demo-secret/username ] && [ -s /var/run/demo-secret/password ]; then
+                  loaded=yes
+                else
+                  loaded=no
+                fi
+                printf 'Cluster: %s\nEnvironment: dev\nSecret loaded: %s\n' "$CLUSTER_NAME" "$loaded" > /usr/share/nginx/html/index.html
+                sleep 5
+              done &
+              exec nginx -g 'daemon off;'
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: database-secret
+              mountPath: /var/run/demo-secret
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+      volumes:
+        - name: database-secret
+          secret:
+            secretName: demo-database
+            optional: true
