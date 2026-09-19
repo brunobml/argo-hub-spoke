@@ -260,12 +260,14 @@ shared Docker network.
 
 ```bash
 ./scripts/install-eso.sh
+./scripts/verify-phase7.sh
 kubectl --context k3d-spoke-01 -n external-secrets get pods
 kubectl --context k3d-spoke-02 -n external-secrets get pods
 ```
 
-ESO is platform bootstrap in this small lab. Its provider objects and the demo
-application remain GitOps-managed.
+ESO `v1.3.2` is platform bootstrap in this small lab. Its provider objects and
+the demo application remain GitOps-managed. Phase 7 intentionally ends before
+creating a SecretStore or ExternalSecret.
 
 ### 8. Enable the ExternalSecret overlay
 

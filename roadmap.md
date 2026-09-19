@@ -14,8 +14,8 @@ point before the next concept is added.
 | 4 | Deploy one manual Argo CD Application | Complete |
 | 5 | Replace it with an ApplicationSet | Complete |
 | 6 | Start Moto and create a fake AWS secret | Complete |
-| 7 | Install External Secrets Operator | Next |
-| 8 | Reconcile an ExternalSecret | Pending |
+| 7 | Install External Secrets Operator | Complete |
+| 8 | Reconcile an ExternalSecret | Next |
 | 9 | Harden Argo CD spoke RBAC | Pending |
 | 10 | Add `spoke-03` without changing ApplicationSet | Pending |
 
@@ -199,6 +199,7 @@ an external secret provider. It is not an Argo CD component.
 
 ```bash
 ./scripts/install-eso.sh
+./scripts/verify-phase7.sh
 ```
 
 Verify:
@@ -208,7 +209,8 @@ kubectl --context k3d-spoke-01 -n external-secrets get pods
 kubectl --context k3d-spoke-02 -n external-secrets get pods
 ```
 
-Complete when the ESO deployments are ready on both spokes. The script also
+Complete when the pinned ESO `v1.3.2` deployments are ready on both spokes.
+The script also
 creates fake AWS SDK credentials imperatively in each `demo` namespace; those
 values work only with Moto and are not committed.
 
