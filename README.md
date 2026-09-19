@@ -294,11 +294,15 @@ them with a Role and RoleBinding limited to the pre-created `demo` namespace:
 
 ```bash
 ./scripts/harden-rbac.sh
+./scripts/verify-phase9.sh
 ```
 
-This deliberately removes the CLI-created ClusterRoleBinding after installing
-the namespace RoleBinding. Argo CD can continue managing the demo resources,
-but it cannot administer the rest of either spoke.
+This installs an explicit resource allowlist and removes the broad namespace
+bootstrap Role. It also cleans up a CLI-created ClusterRoleBinding if one was
+left by an interrupted experiment. Argo CD can continue managing the demo
+resources, but it cannot alter Secrets or administer the rest of either spoke.
+The verifier introduces temporary replica drift and confirms that Argo CD
+restores the Git-defined replica count.
 
 ### 10. Add a spoke without changing ApplicationSet
 

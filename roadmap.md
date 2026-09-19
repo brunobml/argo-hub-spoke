@@ -16,8 +16,8 @@ point before the next concept is added.
 | 6 | Start Moto and create a fake AWS secret | Complete |
 | 7 | Install External Secrets Operator | Complete |
 | 8 | Reconcile an ExternalSecret | Complete |
-| 9 | Harden Argo CD spoke RBAC | Next |
-| 10 | Add `spoke-03` without changing ApplicationSet | Pending |
+| 9 | Harden Argo CD spoke RBAC | Complete |
+| 10 | Add `spoke-03` without changing ApplicationSet | Next |
 
 The optional Keycloak SSO exercise is complete. It changes user authentication
 to Argo CD but is not part of the application-delivery dependency chain.
@@ -253,6 +253,7 @@ require.
 
 ```bash
 ./scripts/harden-rbac.sh
+./scripts/verify-phase9.sh
 ```
 
 Verify expected access and denial:
@@ -264,9 +265,9 @@ kubectl --context k3d-spoke-01 auth can-i create namespaces \
   --as=system:serviceaccount:kube-system:argocd-manager
 ```
 
-The first result should be `yes`; the second should be `no`. Re-run the
-application and ExternalSecret checks to ensure least privilege did not break
-reconciliation.
+The first result should be `yes`; the second should be `no`. The Phase 9
+verifier checks the complete allow/deny matrix, re-runs the Phase 8 checks, and
+briefly scales `spoke-01` to five replicas to prove self-healing still works.
 
 ## Phase 10 — Add `spoke-03`
 

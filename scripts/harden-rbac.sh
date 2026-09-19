@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-spokes=("${@:-spoke-01 spoke-02}")
-for spoke_list in "${spokes[@]}"; do
-  for spoke in $spoke_list; do
+if (( $# )); then
+  spokes=("$@")
+else
+  spokes=(spoke-01 spoke-02)
+fi
+
+for spoke in "${spokes[@]}"; do
     context="k3d-${spoke}"
     sed "s/REPLACE_SPOKE/${spoke}/g" bootstrap/spoke/argocd-rbac.yaml | \
       kubectl --context "$context" apply -f -
@@ -15,5 +19,4 @@ for spoke_list in "${spokes[@]}"; do
       --ignore-not-found
     kubectl --context "$context" delete clusterrole argocd-manager-role --ignore-not-found
     echo "$spoke now grants Argo CD access only in namespace demo"
-  done
 done
