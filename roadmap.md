@@ -13,8 +13,8 @@ point before the next concept is added.
 | 3 | Register and label the spokes | Complete |
 | 4 | Deploy one manual Argo CD Application | Complete |
 | 5 | Replace it with an ApplicationSet | Complete |
-| 6 | Start Moto and create a fake AWS secret | Next |
-| 7 | Install External Secrets Operator | Pending |
+| 6 | Start Moto and create a fake AWS secret | Complete |
+| 7 | Install External Secrets Operator | Next |
 | 8 | Reconcile an ExternalSecret | Pending |
 | 9 | Harden Argo CD spoke RBAC | Pending |
 | 10 | Add `spoke-03` without changing ApplicationSet | Pending |
@@ -168,9 +168,12 @@ read -r -p 'Database username: ' DEMO_DB_USERNAME
 read -r -s -p 'Database password: ' DEMO_DB_PASSWORD; echo
 export DEMO_DB_USERNAME DEMO_DB_PASSWORD
 ./scripts/setup-moto.sh
+./scripts/verify-phase6.sh
 ```
 
-Verify container health and secret metadata without printing its value:
+The verifier checks container health, secret metadata without printing its
+value, and network reachability from both spoke clusters. The underlying
+metadata command is:
 
 ```bash
 docker ps --filter name=moto

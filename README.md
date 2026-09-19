@@ -248,10 +248,13 @@ read -r -p 'Database username: ' DEMO_DB_USERNAME
 read -r -s -p 'Database password: ' DEMO_DB_PASSWORD; echo
 export DEMO_DB_USERNAME DEMO_DB_PASSWORD
 ./scripts/setup-moto.sh
+./scripts/verify-phase6.sh
 ```
 
 The secret key is `/demo/database`. The script prints metadata, never its
-value.
+value. Verification also launches a short-lived curl pod in each spoke to prove
+that Kubernetes workloads can resolve and reach `http://moto:5000` over the
+shared Docker network.
 
 ### 7. Install ESO on both spokes
 
