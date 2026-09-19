@@ -15,8 +15,8 @@ point before the next concept is added.
 | 5 | Replace it with an ApplicationSet | Complete |
 | 6 | Start Moto and create a fake AWS secret | Complete |
 | 7 | Install External Secrets Operator | Complete |
-| 8 | Reconcile an ExternalSecret | Next |
-| 9 | Harden Argo CD spoke RBAC | Pending |
+| 8 | Reconcile an ExternalSecret | Complete |
+| 9 | Harden Argo CD spoke RBAC | Next |
 | 10 | Add `spoke-03` without changing ApplicationSet | Pending |
 
 The optional Keycloak SSO exercise is complete. It changes user authentication
@@ -227,6 +227,7 @@ configuration's scope.
 export REPO_URL=https://github.com/brunobml/argo-hub-spoke.git
 export TARGET_REVISION=main
 ./scripts/bootstrap-gitops.sh external-secrets
+./scripts/verify-phase8.sh
 ```
 
 Verify on both spokes:
@@ -238,8 +239,8 @@ kubectl --context k3d-spoke-02 -n demo get secretstore,externalsecret
 kubectl --context k3d-spoke-02 -n demo get secret demo-database
 ```
 
-Then run `./scripts/verify-phase5.sh` again. Both responses should change to
-`Secret loaded: yes` without exposing the actual secret.
+The Phase 8 verifier confirms both responses changed to `Secret loaded: yes`,
+lists only the generated Secret's key names, and never exposes its values.
 
 ## Phase 9 — Harden spoke RBAC
 

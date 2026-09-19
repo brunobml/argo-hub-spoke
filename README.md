@@ -273,12 +273,14 @@ creating a SecretStore or ExternalSecret.
 
 ```bash
 ./scripts/bootstrap-gitops.sh external-secrets
+./scripts/verify-phase8.sh
 kubectl --context k3d-spoke-01 -n demo get secretstore,externalsecret
 kubectl --context k3d-spoke-01 -n demo get secret demo-database
 ```
 
 Do not decode the generated Secret during ordinary verification. Port-forward
-the service and observe only whether a secret was loaded:
+the service only if you want to access it from a browser; the verifier uses the
+Kubernetes API proxy and observes only whether a secret was loaded:
 
 ```bash
 kubectl --context k3d-spoke-01 -n demo port-forward svc/demo-app 8081:80
