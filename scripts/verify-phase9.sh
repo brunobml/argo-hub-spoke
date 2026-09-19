@@ -24,6 +24,7 @@ for spoke in spoke-01 spoke-02; do
   can "$context" yes create deployments.apps demo
   can "$context" yes create services demo
   can "$context" yes create externalsecrets.external-secrets.io demo
+  can "$context" yes get secrets demo
   can "$context" no update secrets demo
   can "$context" no create jobs.batch demo
   can "$context" no create namespaces

@@ -4,24 +4,20 @@ metadata:
   name: argocd-manager
   namespace: demo
 rules:
+  # Argo CD's cluster cache lists every discoverable namespaced resource.
+  # Read access is namespace-scoped; mutation remains explicitly allowlisted.
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["services"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: [""]
-    resources: ["endpoints", "events", "pods"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["create", "update", "patch", "delete"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["apps"]
-    resources: ["replicasets"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["discovery.k8s.io"]
-    resources: ["endpointslices"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["create", "update", "patch", "delete"]
   - apiGroups: ["external-secrets.io"]
     resources: ["secretstores", "externalsecrets"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs: ["create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

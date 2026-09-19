@@ -298,16 +298,18 @@ them with a Role and RoleBinding limited to the pre-created `demo` namespace:
 ```
 
 This installs an explicit resource allowlist and removes the broad namespace
-bootstrap Role. It also cleans up a CLI-created ClusterRoleBinding if one was
-left by an interrupted experiment. Argo CD can continue managing the demo
-resources, but it cannot alter Secrets or administer the rest of either spoke.
-The verifier introduces temporary replica drift and confirms that Argo CD
-restores the Git-defined replica count.
+bootstrap Role. Argo CD can read all resource types in `demo`, which its cluster
+cache requires, but it can mutate only Services, Deployments, SecretStores, and
+ExternalSecrets. It cannot alter Secrets or administer the rest of a spoke. The
+script also cleans up a CLI-created ClusterRoleBinding if one was left by an
+interrupted experiment. The verifier introduces temporary replica drift and
+confirms that Argo CD restores the Git-defined replica count.
 
 ### 10. Add a spoke without changing ApplicationSet
 
 ```bash
 ./scripts/create-spoke.sh spoke-03 6553
+./scripts/verify-phase10.sh
 kubectl --context k3d-spoke-03 -n demo get pods
 ```
 

@@ -17,7 +17,7 @@ point before the next concept is added.
 | 7 | Install External Secrets Operator | Complete |
 | 8 | Reconcile an ExternalSecret | Complete |
 | 9 | Harden Argo CD spoke RBAC | Complete |
-| 10 | Add `spoke-03` without changing ApplicationSet | Next |
+| 10 | Add `spoke-03` without changing ApplicationSet | Complete |
 
 The optional Keycloak SSO exercise is complete. It changes user authentication
 to Argo CD but is not part of the application-delivery dependency chain.
@@ -251,6 +251,11 @@ allowlist.
 spoke credential should have only the verbs and resources its applications
 require.
 
+Argo CD's cache must read all discoverable resource types in the managed
+namespace. The hardened Role therefore grants `get/list/watch` across `demo`,
+but mutation only for Services, Deployments, SecretStores, and ExternalSecrets.
+It cannot modify Secrets or access cluster-scoped resources.
+
 ```bash
 ./scripts/harden-rbac.sh
 ./scripts/verify-phase9.sh
@@ -279,6 +284,7 @@ reacts automatically.
 
 ```bash
 ./scripts/create-spoke.sh spoke-03 6553
+./scripts/verify-phase10.sh
 ```
 
 Verify:
