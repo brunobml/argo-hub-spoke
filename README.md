@@ -154,16 +154,47 @@ Phase 4 will create the first Application and activate monitoring.
 
 ### 4. Deploy one app manually through Argo CD
 
-Commit and push this repository first, then provide its URL:
+**Goal:** understand one `Application` completely before a generator creates
+many of them. This phase targets only `spoke-01`.
+
+Commit and push this repository first, then provide its HTTPS clone URL. A
+public repository needs no Argo CD repository credential:
 
 ```bash
-export REPO_URL=https://github.com/REPLACE_ME/argo-hub-spoke.git
+export REPO_URL=https://github.com/brunobml/argo-hub-spoke.git
+export TARGET_REVISION=main
 ./scripts/bootstrap-gitops.sh manual
-kubectl --context k3d-spoke-01 -n demo get deploy,pod,service
+./scripts/verify-phase4.sh
 ```
 
 This phase creates one `Application` for `spoke-01`, making the mechanics easy
-to inspect before introducing ApplicationSet.
+to inspect before introducing ApplicationSet:
+
+```text
+Git apps/demo-app/base
+          |
+          v
+argocd/Application demo-app-spoke-01
+          |
+          v
+spoke-01/demo Deployment + Service
+```
+
+The Application has automated synchronization and `selfHeal: true`, but does
+not enable pruning. Its Kustomize patch injects `spoke-01` into the generic
+Deployment so the HTTP response identifies its target cluster.
+
+Expected response at this point:
+
+```text
+Cluster: spoke-01
+Environment: dev
+Secret loaded: no
+```
+
+`Secret loaded: no` is intentional: Moto and ESO are Phases 6–8. The verifier
+also confirms the app is absent from `spoke-02`; multi-cluster placement is
+introduced only in Phase 5.
 
 ### 5. Replace it with an ApplicationSet Cluster Generator
 
