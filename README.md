@@ -3,6 +3,12 @@
 Start with [roadmap.md](roadmap.md) for phase status, the next step, commands,
 verification, and the production concept demonstrated by each exercise.
 
+Two learning paths are available:
+
+- Use the phase commands below for a fast, repeatable build.
+- Use [docs/manual-lab.md](docs/manual-lab.md) to perform the same architecture
+  one operation at a time and inspect what each script normally hides.
+
 This lab runs one Argo CD control plane in `argocd-hub` and deploys a tiny
 nginx application to `spoke-01` and `spoke-02`. External Secrets Operator
 (ESO) runs on each spoke and reads a JSON secret from a local Moto container
@@ -16,6 +22,28 @@ Git -> Argo CD hub -> spoke Kubernetes APIs
                          +-> demo app
                          +-> ESO -> Moto (AWS Secrets Manager API)
 ```
+Yes—the planned lab is complete.
+
+  It now demonstrates:
+
+  - Three-spoke-capable k3d hub-and-spoke architecture
+  - Argo CD running only on argocd-hub
+  - Remote spoke registration and labeled cluster Secrets
+  - GitHub as the desired-state source
+  - ApplicationSet Cluster Generator placement
+  - Automated synchronization and self-healing
+  - Moto simulating AWS Secrets Manager
+  - ESO running on every spoke
+  - Git-managed SecretStore and ExternalSecret
+  - Runtime secret delivery without values in Git
+  - Namespace-scoped, mutation-restricted Argo CD RBAC
+  - Automatic spoke-03 onboarding without ApplicationSet changes
+  - Optional Keycloak SSO with group-based Argo CD roles
+  - Traefik access without port-forwarding
+  - Phase-specific verification scripts and documentation
+
+  All ten phases are marked complete in roadmap.md. The final state is pushed to GitHub at commit 51fd690.
+
 
 ## Prerequisites
 
@@ -36,6 +64,10 @@ Check them with:
 
 Do not run this as one opaque installer. Run a phase, inspect it, and verify it
 before continuing.
+
+Each section below is the **quick path**. For a progressive command-by-command
+version, follow the matching phase in the
+[manual learning path](docs/manual-lab.md).
 
 ### 1. Create the clusters
 

@@ -1,5 +1,10 @@
 # Lab roadmap
 
+This roadmap tracks the repeatable script-based path. To rebuild the same lab
+one operation at a time, use [docs/manual-lab.md](docs/manual-lab.md). The
+manual path explains what the scripts create and adds observation points
+between changes.
+
 This is the progress map for the Argo CD hub-and-spoke lab. Complete phases in
 order: each phase introduces one production concept and has a clear verification
 point before the next concept is added.
