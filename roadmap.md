@@ -23,7 +23,7 @@ point before the next concept is added.
 | 8 | Reconcile an ExternalSecret | Complete |
 | 9 | Harden Argo CD spoke RBAC | Complete |
 | 10 | Add `spoke-03` without changing ApplicationSet | Complete |
-| 11 | Reliability, troubleshooting, and final validation | Planned |
+| 11 | Reliability, troubleshooting, and final validation | Prerequisite in progress |
 
 The optional Keycloak SSO exercise is complete. It changes user authentication
 to Argo CD but is not part of the application-delivery dependency chain.
@@ -324,8 +324,8 @@ editing `bootstrap/hub/applicationset-external-secrets.yaml`.
 
 ## Phase 11 — Reliability, troubleshooting, and final validation
 
-**Status:** Planned. Do not mark this phase complete until every completion
-criterion below has been demonstrated from a clean rebuild.
+**Status:** Prerequisite in progress. Do not mark this phase complete until
+every completion criterion below has been demonstrated from a clean rebuild.
 
 **Purpose:** remove avoidable setup and verification failures, make error
 messages actionable, and prove that a new learner can rebuild and troubleshoot
@@ -338,7 +338,15 @@ documented recovery path—not only a successful initial deployment.
 
 ### Prerequisite learning pass
 
-Before changing Phase 11 code:
+**Manual tutorial validation:** Complete. A clean run validated all ten phases.
+Phases 3, 5, and 8 exposed reproducible tutorial-command defects; the manual
+now includes the verified corrections. The architecture and final cluster
+health were not affected.
+
+**Failure-exercise validation:** Pending. Complete this before beginning the
+ordered implementation tasks below.
+
+The complete prerequisite learning pass is:
 
 1. Complete the [manual learning path](docs/manual-lab.md), concentrating on
    Phases 3, 5, 8, 9, and 10.
@@ -365,12 +373,13 @@ Complete these tasks in order and verify each one independently:
    - Check the requested API port before creating an additional spoke.
    - Distinguish an existing lab component from an unrelated process and give
      the learner a clear recovery instruction.
-4. **Argo CD discovery-cache troubleshooting**
-   - Document the transient state that can occur when ESO CRDs are installed
-     after spoke registration.
-   - Prefer a bounded wait or targeted hard refresh.
-   - Keep application-controller restart as an explicit troubleshooting step,
-     not an automatic side effect of ESO installation.
+4. **Argo CD reconciliation troubleshooting**
+   - Document that `kubectl wait` fails immediately if Argo CD has not created
+     the named ESO resource yet.
+   - Poll for resource existence with a bounded timeout before waiting for its
+     readiness condition.
+   - Use targeted hard refresh only when normal convergence exceeds the
+     documented timeout; do not restart the application controller by default.
 5. **Safe dynamic cleanup**
    - Support spokes beyond `spoke-03` without deleting unrelated k3d clusters.
    - Show the exact lab resources selected for deletion.

@@ -28,7 +28,7 @@ The full detailed report with technical root-cause analyses, validation logs, an
 
 ### Key Recommendations at a Glance
 
-1. **Remote CRD Discovery Cache**: When ESO is installed on remote spokes after cluster registration, Argo CD's application controller cache must be refreshed (or restarted) to avoid a transient `Degraded` application status.
+1. **Phase 8 Reconciliation Timing**: After changing the ApplicationSet, wait for Argo CD to create the ESO resources before using `kubectl wait`. A bounded wait or targeted hard refresh is sufficient; restarting the application controller is not required by the clean-run reproduction.
 2. **Pre-flight Port Checks**: Enhance `check-prerequisites.sh` to check for conflicting host ports (`80`, `443`, `5000`, `6550-6553`) before cluster creation starts.
 3. **Portability (`rg` vs `grep`)**: Replace `rg` with POSIX `grep -Eq` in `verify-phase10.sh` for environments without ripgrep installed.
 4. **Resilient Verifications**: Add short retry loops to `verify-phase4.sh`, `verify-phase5.sh`, and `verify-phase8.sh` to prevent false negatives from asynchronous reconciliation delays.

@@ -26,22 +26,25 @@ Every phase of the lab was executed sequentially on a clean environment followin
 
 ## 2. Key Findings & Friction Points Discovered
 
-### Finding 1: Remote Cluster CRD Discovery Caching (Phase 3 vs. Phase 7/8)
-* **What Happened**: In Phase 8, right after applying `./scripts/bootstrap-gitops.sh external-secrets`, `./scripts/verify-phase8.sh` initially reported:
+### Finding 1: Phase 8 Reconciliation Timing
+* **What Happened**: Immediately after changing the ApplicationSet in Phase 8, verification could run before Argo CD had created the `SecretStore` and `ExternalSecret`. The manual tutorial's original `kubectl wait` commands then returned `NotFound` immediately rather than waiting for the objects. An early application check could likewise report a transitional state such as:
   ```text
   [spoke-01]
   Application: sync=Synced health=Degraded
   ```
-  Inspecting the Argo CD Application status revealed that `demo-app` was `Synced` and `Healthy`, but `ExternalSecret` and `SecretStore` had `status: Unknown` with no health evaluated. Meanwhile, on `spoke-01` and `spoke-02`, both `SecretStore` and `ExternalSecret` were `Ready: True`, and `Secret loaded: yes` was already serving.
-* **Root Cause**: Argo CD discovers and caches available API resources on remote clusters when connecting to them. Because `spoke-01` and `spoke-02` were registered in **Phase 3** (before ESO CRDs existed), Argo CD's cluster cache did not know `external-secrets.io/v1` existed on the spokes. When Phase 8 synced the new kinds, Argo CD could not watch the resources until its discovery cache refreshed.
-* **Contrast with Phase 10**: `scripts/create-spoke.sh` specifically avoided this by installing ESO *before* running `register-clusters.sh`:
+  In the clean manual reproduction, the objects appeared during normal reconciliation and both spokes reached `Synced/Healthy`, with `SecretStore` and `ExternalSecret` reporting `Ready: True` and the application serving `Secret loaded: yes`, without a controller restart.
+* **Reproduced Root Cause**: A clean manual run showed that the ApplicationSet template update had not yet produced the `SecretStore` and `ExternalSecret` when the next commands ran. `kubectl wait --for=condition=Ready <named-resource>` does not wait for that resource to be created; it returns `NotFound` immediately. Normal Argo CD reconciliation created the resources and all Applications reached `Synced/Healthy` in under two minutes without restarting a controller. The earlier cache explanation was an inference and is superseded by this direct reproduction.
+* **Phase 10 Sequencing**: `scripts/create-spoke.sh` installs ESO *before* running `register-clusters.sh`:
   ```bash
   # Platform CRDs must exist before the workload label makes ApplicationSet
   # discover this cluster.
   ./scripts/install-eso.sh "$name"
   ./scripts/register-clusters.sh "$name"
   ```
-* **Solution**: In `scripts/install-eso.sh`, after installing ESO on the spokes, either restart `argocd-application-controller` or trigger a cluster refresh on the hub so that the hub immediately recognizes the new CRDs.
+  This remains the correct dependency order because the CRDs exist before an
+  Application can target the new spoke. It is not, by itself, evidence that a
+  stale discovery cache caused the Phase 8 delay.
+* **Solution**: Poll with a bounded timeout until the resources exist, then use `kubectl wait` for their `Ready` conditions. A targeted hard refresh is a reasonable troubleshooting action if convergence exceeds the documented timeout. Do not restart the application controller as a normal ESO installation step.
 
 ---
 
@@ -99,19 +102,23 @@ Every phase of the lab was executed sequentially on a clean environment followin
 
 Below are recommended implementations for the identified improvements.
 
-### Improvement 1: Auto-refresh Argo CD Controller Cache in `scripts/install-eso.sh`
-Add a rollout restart or cache trigger at the end of `install-eso.sh` so that the hub application controller immediately discovers the `external-secrets.io` API group on spokes:
+### Improvement 1: Wait for Phase 8 Resources to Exist
+After changing the ApplicationSet, allow Argo CD time to create the resources before waiting for their readiness:
 
 ```bash
-# Append to scripts/install-eso.sh:
-hub_context=k3d-argocd-hub
-if kubectl --context "$hub_context" get namespace argocd >/dev/null 2>&1; then
-  echo "Refreshing Argo CD application controller cluster cache..."
-  kubectl --context "$hub_context" -n argocd rollout restart \
-    statefulset/argocd-application-controller >/dev/null
-  kubectl --context "$hub_context" -n argocd rollout status \
-    statefulset/argocd-application-controller --timeout=120s >/dev/null
-fi
+for _ in $(seq 1 24); do
+  if kubectl --context k3d-spoke-01 -n demo get \
+      secretstore/moto-secrets-manager >/dev/null 2>&1 && \
+     kubectl --context k3d-spoke-01 -n demo get \
+      externalsecret/demo-database >/dev/null 2>&1; then
+    break
+  fi
+  sleep 5
+done
+kubectl --context k3d-spoke-01 -n demo get \
+  secretstore/moto-secrets-manager >/dev/null
+kubectl --context k3d-spoke-01 -n demo get \
+  externalsecret/demo-database >/dev/null
 ```
 
 ---

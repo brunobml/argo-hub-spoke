@@ -68,6 +68,11 @@ kubectl --context k3d-spoke-02 get nodes
 docker network inspect argo-lab
 ```
 
+`kubectl config get-contexts` may also show contexts from unrelated local
+labs. The three contexts created here are `k3d-argocd-hub`,
+`k3d-spoke-01`, and `k3d-spoke-02`; later commands always select one
+explicitly.
+
 Notice that the kubeconfig endpoints use `127.0.0.1:6550-6552`, while Docker
 containers on `argo-lab` can resolve names such as
 `k3d-spoke-01-server-0:6443`.
@@ -109,9 +114,11 @@ kubectl --context k3d-spoke-01 get namespace argocd
 kubectl --context k3d-spoke-02 get namespace argocd
 ```
 
-The last two commands should return `NotFound`. Identify the server, repository
-server, application controller, and ApplicationSet controller in the hub
-output before continuing.
+The last two commands should return `NotFound` with a non-zero exit status.
+That result is expected when commands are entered interactively; do not place
+those negative checks unguarded in a script using `set -e`. Identify the
+server, repository server, application controller, and ApplicationSet
+controller in the hub output before continuing.
 
 ## Phase 3 — Register one spoke by hand
 
@@ -133,6 +140,9 @@ same operations.
 export SPOKE=spoke-01
 export SPOKE_CONTEXT=k3d-${SPOKE}
 export HUB_CONTEXT=k3d-argocd-hub
+
+# Argo CD core mode reads its namespace from the selected kube-context.
+kubectl config set-context "$HUB_CONTEXT" --namespace=argocd
 
 kubectl --context "$SPOKE_CONTEXT" create namespace demo
 
@@ -239,6 +249,9 @@ argocd cluster list --core --kube-context "$HUB_CONTEXT"
 ```
 
 Expected permission answers are `yes` in `demo` and `no` in `default`.
+The `set-context` command above is required because `argocd --core` otherwise
+looks for `argocd-cm` in the context's default namespace. It updates only the
+local kubeconfig; explicit `-n` flags still take precedence.
 
 Now register and verify the second spoke:
 
@@ -280,6 +293,17 @@ destination namespace, Project, and sync policy before applying them.
 
 ### Apply and watch reconciliation
 
+Argo CD reads the remote repository, never the local working tree. Confirm
+that the desired branch is clean and contains no unpushed commits:
+
+```bash
+git status --short
+git log --oneline '@{u}..HEAD'
+```
+
+Both commands should produce no output. If they show intended changes or
+commits, commit and `git push` them before continuing.
+
 ```bash
 kubectl --context k3d-argocd-hub apply -f /tmp/demo-project.yaml
 kubectl --context k3d-argocd-hub apply -f /tmp/demo-application.yaml
@@ -293,6 +317,9 @@ Stop the watch with `Ctrl-C` after it is `Synced` and `Healthy`, then verify:
 ```bash
 ./scripts/verify-phase4.sh
 ```
+
+The expected response includes `Secret loaded: no`; Moto and ESO are not
+introduced until Phases 6–8.
 
 Explain why the workload Pod exists on `spoke-01` even though the Application
 object exists on the hub.
@@ -326,9 +353,12 @@ sed -e "s|REPLACE_REPO_URL|${REPO_URL}|g" \
     bootstrap/hub/applicationset.yaml > /tmp/demo-applicationset.yaml
 
 kubectl --context k3d-argocd-hub apply -f /tmp/demo-applicationset.yaml
-kubectl --context k3d-argocd-hub -n argocd get applicationset,applications -w
+kubectl --context k3d-argocd-hub -n argocd get applicationset demo-app
+kubectl --context k3d-argocd-hub -n argocd get applications -w
 ```
 
+The watch intentionally uses one resource type. Some kubectl versions reject
+`-w` when a comma-separated list of different resource types is supplied.
 After both Applications are healthy, stop the watch and run:
 
 ```bash
@@ -353,6 +383,10 @@ docker run -d --name moto --network argo-lab -p 5000:5000 \
 
 curl --fail http://localhost:5000/
 ```
+
+The HTTP response proves that the Moto server is reachable. The Secrets
+Manager `create-secret` and `describe-secret` calls below prove that the
+specific emulated AWS API is working.
 
 ### Create the secret without committing it
 
@@ -476,6 +510,22 @@ kubectl --context k3d-argocd-hub apply \
 Observe one spoke in dependency order:
 
 ```bash
+# kubectl wait fails immediately when a named resource does not exist yet.
+# First give Argo CD up to two minutes to create both objects.
+for _ in $(seq 1 24); do
+  if kubectl --context k3d-spoke-01 -n demo get \
+      secretstore/moto-secrets-manager >/dev/null 2>&1 && \
+     kubectl --context k3d-spoke-01 -n demo get \
+      externalsecret/demo-database >/dev/null 2>&1; then
+    break
+  fi
+  sleep 5
+done
+kubectl --context k3d-spoke-01 -n demo get \
+  secretstore/moto-secrets-manager >/dev/null
+kubectl --context k3d-spoke-01 -n demo get \
+  externalsecret/demo-database >/dev/null
+
 kubectl --context k3d-spoke-01 -n demo wait \
   --for=condition=Ready secretstore/moto-secrets-manager --timeout=120s
 kubectl --context k3d-spoke-01 -n demo wait \
@@ -486,6 +536,11 @@ kubectl --context k3d-spoke-01 -n demo get secret demo-database \
 kubectl --context k3d-spoke-01 get --raw \
   /api/v1/namespaces/demo/services/http:demo-app:80/proxy/
 ```
+
+The existence poll covers ApplicationSet and Argo CD reconciliation time. The
+two `kubectl wait` calls then cover provider readiness after the objects exist.
+Normal convergence can take several seconds to roughly two minutes and does
+not require restarting the Argo CD application controller.
 
 Print only key names, not values. Complete verification across both spokes:
 

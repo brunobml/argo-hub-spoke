@@ -25,9 +25,9 @@ Git -> Argo CD hub -> spoke Kubernetes APIs
 
 ## Project status
 
-The architecture and delivery work in Phases 1–10 is complete. Phase 11 is
-planned as a reliability, troubleshooting, and final-validation pass; it adds
-no new platform component. See the [roadmap](roadmap.md#phase-11--reliability-troubleshooting-and-final-validation)
+The architecture and delivery work in Phases 1–10 is complete. Preparation for
+Phase 11, a reliability, troubleshooting, and final-validation pass, is in
+progress; it adds no new platform component. See the [roadmap](roadmap.md#phase-11--reliability-troubleshooting-and-final-validation)
 for its prerequisite, ordered tasks, verification, and completion criteria.
 
 ## Prerequisites
@@ -121,6 +121,7 @@ Important components to identify:
 | `argocd-applicationset-controller` | later generates one Application per labeled spoke |
 | `argocd-redis` | short-lived cache |
 | `argocd-dex-server` | identity integration; local admin is used for this lab |
+| `argocd-notifications-controller` | ships in the upstream manifest but is unused in this lab |
 
 Verify that every pod is `Running`, the application controller is ready, and
 Argo CD is absent from both spokes:
@@ -135,8 +136,9 @@ kubectl --context k3d-spoke-01 get namespace argocd
 kubectl --context k3d-spoke-02 get namespace argocd
 ```
 
-The last two commands should return `NotFound`. That is intentional: the hub
-will manage the spokes through their Kubernetes APIs.
+The last two commands should return `NotFound` and a non-zero exit status.
+That is intentional: the hub will manage the spokes through their Kubernetes
+APIs. Guard these negative checks if copying them into a `set -e` script.
 
 To use the UI, start a port-forward in one terminal:
 
