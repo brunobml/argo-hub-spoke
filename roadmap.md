@@ -23,9 +23,29 @@ point before the next concept is added.
 | 8 | Reconcile an ExternalSecret | Complete |
 | 9 | Harden Argo CD spoke RBAC | Complete |
 | 10 | Add `spoke-03` without changing ApplicationSet | Complete |
+| 11 | Reliability, troubleshooting, and final validation | Planned |
 
 The optional Keycloak SSO exercise is complete. It changes user authentication
 to Argo CD but is not part of the application-delivery dependency chain.
+
+## Before Phase 1 — prerequisite gate
+
+Start from a workstation with Bash 4+, Docker, k3d, kubectl, Helm 3, the Argo
+CD CLI, Git, curl, OpenSSL, and standard text/encoding utilities. The complete
+list, official installation links, required host ports, and network
+requirements are in the [README prerequisites](README.md#prerequisites).
+
+From a fresh clone:
+
+```bash
+git clone git@github.com:brunobml/argo-hub-spoke.git
+cd argo-hub-spoke
+./scripts/check-prerequisites.sh
+```
+
+Do not begin Phase 1 unless every command is found, Docker is reachable, and
+the Git working-tree check passes. Before Phase 4, also ensure the desired
+branch is committed and pushed to a repository that Argo CD can reach.
 
 ## Architecture at a glance
 
@@ -301,6 +321,123 @@ kubectl --context k3d-spoke-03 -n demo get deployment,pod,service
 
 Complete when `demo-app-spoke-03` appears and becomes `Synced/Healthy` without
 editing `bootstrap/hub/applicationset-external-secrets.yaml`.
+
+## Phase 11 — Reliability, troubleshooting, and final validation
+
+**Status:** Planned. Do not mark this phase complete until every completion
+criterion below has been demonstrated from a clean rebuild.
+
+**Purpose:** remove avoidable setup and verification failures, make error
+messages actionable, and prove that a new learner can rebuild and troubleshoot
+the lab. This phase does not add another platform component or change the
+hub-and-spoke architecture.
+
+**Production concept:** operational readiness includes deterministic
+validation, useful failure signals, safe cleanup, credential hygiene, and a
+documented recovery path—not only a successful initial deployment.
+
+### Prerequisite learning pass
+
+Before changing Phase 11 code:
+
+1. Complete the [manual learning path](docs/manual-lab.md), concentrating on
+   Phases 3, 5, 8, 9, and 10.
+2. Run every exercise under [After the roadmap](#after-the-roadmap), one at a
+   time, and restore the healthy state after each exercise.
+3. Record commands, explanations, or expected results that were unclear.
+4. Add those observations to the relevant Phase 11 task instead of adding a
+   new component.
+
+### Ordered implementation tasks
+
+Complete these tasks in order and verify each one independently:
+
+1. **Resilient asynchronous verification**
+   - Add bounded retry loops to Phase 4, 5, and 8 verification.
+   - Report the last observed sync, health, or readiness state on timeout.
+   - Keep a real failure non-zero; retries must not hide errors.
+2. **Portable Phase 10 verification**
+   - Replace the undocumented `rg` dependency with `grep`.
+   - Re-run Phase 10 verification on the existing healthy lab.
+3. **Operation-specific port checks**
+   - Check `80`, `443`, and `6550-6552` before initial cluster creation.
+   - Check `5000` before creating Moto.
+   - Check the requested API port before creating an additional spoke.
+   - Distinguish an existing lab component from an unrelated process and give
+     the learner a clear recovery instruction.
+4. **Argo CD discovery-cache troubleshooting**
+   - Document the transient state that can occur when ESO CRDs are installed
+     after spoke registration.
+   - Prefer a bounded wait or targeted hard refresh.
+   - Keep application-controller restart as an explicit troubleshooting step,
+     not an automatic side effect of ESO installation.
+5. **Safe dynamic cleanup**
+   - Support spokes beyond `spoke-03` without deleting unrelated k3d clusters.
+   - Show the exact lab resources selected for deletion.
+   - Require an explicit option before broad dynamic deletion.
+6. **Safer Git defaults**
+   - Preserve explicit `REPO_URL` and `TARGET_REVISION` overrides.
+   - Optionally detect the origin and current branch when they are omitted.
+   - Warn about a dirty tree, missing upstream, or unpushed commits.
+   - Do not silently rewrite an SSH URL to HTTPS for a private repository.
+7. **End-to-end validation summary**
+   - Add a small `verify-lab.sh` that composes existing verification scripts
+     instead of duplicating their assertions.
+   - Print a concise pass/fail summary and exit non-zero on any failure.
+   - Clearly identify checks that intentionally mutate state, such as the
+     Phase 9 drift exercise.
+8. **Credential hygiene**
+   - Ensure local notes containing passwords cannot be committed accidentally.
+   - Scan tracked changes for credentials before the final commit.
+   - Rotate any credential that was written to an unsafe local file or shared.
+   - Continue printing only Secret key names during normal verification.
+9. **Documentation reconciliation**
+   - Update the README, roadmap, manual tutorial, and troubleshooting guidance
+     to match the implemented behavior.
+   - Remove stale commands and duplicated or contradictory instructions.
+
+### Verification sequence
+
+After implementing the tasks:
+
+```bash
+bash -n scripts/*.sh
+./scripts/check-prerequisites.sh
+```
+
+Then use `./scripts/cleanup.sh` only after reviewing what it will delete, and
+perform a clean rebuild in roadmap order:
+
+```text
+Phase 1 -> Phase 2 -> Phase 3 -> Phase 4 -> Phase 5
+        -> Phase 6 -> Phase 7 -> Phase 8 -> Phase 9 -> Phase 10
+```
+
+For each phase, run its documented verification before continuing. Finally,
+run the new end-to-end validator and all failure exercises. Confirm that each
+failure produces the documented symptom and that the lab returns to
+`Synced/Healthy` afterward.
+
+### Completion criteria
+
+Phase 11 is complete only when:
+
+- a fresh clone passes the prerequisite gate or clearly identifies what is
+  missing;
+- a clean rebuild completes Phases 1–10 in order;
+- every phase verifier and the end-to-end validator passes;
+- asynchronous reconciliation does not cause false-negative verification;
+- port conflicts and Git publication mistakes produce actionable messages;
+- self-healing, Moto outage, spoke outage, and label-placement exercises match
+  the documentation;
+- cleanup includes intentionally created lab spokes but protects unrelated
+  clusters;
+- no credential or application secret value is tracked by Git;
+- the healthy final state has every generated Application `Synced/Healthy`;
+- no new platform component was introduced.
+
+When all criteria pass, change Phase 11 from `Planned` to `Complete` in the
+progress table and in this section.
 
 ## Optional extension — Keycloak SSO
 

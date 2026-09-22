@@ -22,43 +22,58 @@ Git -> Argo CD hub -> spoke Kubernetes APIs
                          +-> demo app
                          +-> ESO -> Moto (AWS Secrets Manager API)
 ```
-Yes—the planned lab is complete.
 
-  It now demonstrates:
+## Project status
 
-  - Three-spoke-capable k3d hub-and-spoke architecture
-  - Argo CD running only on argocd-hub
-  - Remote spoke registration and labeled cluster Secrets
-  - GitHub as the desired-state source
-  - ApplicationSet Cluster Generator placement
-  - Automated synchronization and self-healing
-  - Moto simulating AWS Secrets Manager
-  - ESO running on every spoke
-  - Git-managed SecretStore and ExternalSecret
-  - Runtime secret delivery without values in Git
-  - Namespace-scoped, mutation-restricted Argo CD RBAC
-  - Automatic spoke-03 onboarding without ApplicationSet changes
-  - Optional Keycloak SSO with group-based Argo CD roles
-  - Traefik access without port-forwarding
-  - Phase-specific verification scripts and documentation
-
-  All ten phases are marked complete in roadmap.md. The final state is pushed to GitHub at commit 51fd690.
-
+The architecture and delivery work in Phases 1–10 is complete. Phase 11 is
+planned as a reliability, troubleshooting, and final-validation pass; it adds
+no new platform component. See the [roadmap](roadmap.md#phase-11--reliability-troubleshooting-and-final-validation)
+for its prerequisite, ordered tasks, verification, and completion criteria.
 
 ## Prerequisites
 
-- Docker
-- k3d
-- kubectl
-- Helm 3
-- Argo CD CLI
-- a Git repository containing this project, reachable by the Argo CD pods
+Required workstation software:
 
-Check them with:
+- Bash 4 or newer;
+- Docker with a running daemon;
+- k3d;
+- kubectl;
+- Helm 3;
+- Argo CD CLI;
+- Git, curl, and OpenSSL;
+- standard `base64`, `sed`, `awk`, and `grep` utilities.
+
+Installation documentation:
+
+- [Docker Engine](https://docs.docker.com/engine/install/)
+- [k3d](https://k3d.io/stable/#installation)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [Helm](https://helm.sh/docs/intro/install/)
+- [Argo CD CLI](https://argo-cd.readthedocs.io/en/stable/cli_installation/)
+
+The workstation also needs:
+
+- outbound access to GitHub, Helm repositories, and container registries;
+- host ports `80`, `443`, `5000`, and `6550` through `6553` available when
+  their corresponding lab components are created;
+- this repository cloned locally;
+- a pushed Git repository URL reachable by Argo CD before Phase 4.
+
+The scripts are tested with Bash on Linux. Other operating systems may require
+small command-line differences in the manual learning path.
+
+After cloning, run the prerequisite check from the repository root:
 
 ```bash
+git clone git@github.com:brunobml/argo-hub-spoke.git
+cd argo-hub-spoke
 ./scripts/check-prerequisites.sh
 ```
+
+Do not begin Phase 1 until every command reports `found` and the Docker daemon
+and Git working tree checks pass. Automated host-port conflict detection is a
+planned Phase 11 improvement; until then, free the listed ports before running
+the lab.
 
 ## Walk through the phases
 
